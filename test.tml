@@ -1,0 +1,3 @@
+fun x -> fun y ->
+         fun f1 -> fun f2 -> fun f3 ->
+           (f1 y, f2 y, f3 y, (((if true then f1 else f2) x) + ((if true then f1 else f3) x)))
