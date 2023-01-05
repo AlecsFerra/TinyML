@@ -307,31 +307,28 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         body_ty, compose_subst body_scheme it_subst               
     
     | LetRec(name, annotation, it, body) ->
-        // Make an env in which I can infer it freely
-        let function_ty = TyArrow(fresh_var (), fresh_var ())
+        let function_ty = match annotation with
+                          | None -> TyArrow (fresh_var (), fresh_var ())
+                          | Some (TyArrow _ as annotation) -> annotation
+                          | Some _ -> type_error "let rec can only define functions"
+                          
+        // Create the environment where it is type inferred
         let it_env = extend_env (name, function_ty) env
-        
-        // Infer the type of it
         let it_ty, it_subst = typeinfer_expr it_env it
         
-        // Do we have an annotation
-        let it_type, it_subst =
-            match annotation with
-            | None ->
-                // Now function must be the same as function
-                let function_ty = apply_subst function_ty it_subst
-                let function_subst = unify function_ty it_ty
-                apply_subst it_ty function_subst, compose_subst function_subst it_subst
-            | Some annotation ->
-                let it_type_un = unify annotation it_ty
-                let it_ty = apply_subst it_ty it_type_un
-                it_ty, compose_subst it_type_un it_subst
-                
-        // Create the env to infer the body
-        let env_body = apply_subst_in_env env it_subst
-        let env_body = (name, generalize env_body it_type) :: env
-        let body_ty, body_subst = typeinfer_expr env_body body
-        body_ty, compose_subst body_subst it_subst 
+        // Apply function_ty and it_ty must be the same
+        let function_ty = apply_subst function_ty it_subst
+        let function_subst = unify function_ty it_ty
+        let it_ty = apply_subst it_ty function_subst 
+        let it_subst = compose_subst function_subst it_subst
+        
+        // Infer the type of the body
+        let body_env = apply_subst_in_env env it_subst
+        let body_env = (name, generalize body_env it_ty) :: body_env
+        let body_ty, body_subst = typeinfer_expr body_env body
+        
+        body_ty, compose_subst body_subst it_subst
+        
     
     | Tuple args ->
         let accumulate (env, subst, ty) it =
