@@ -307,20 +307,33 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         body_ty, compose_subst body_scheme it_subst               
     
     | LetRec(name, annotation, it, body) ->
-        let function_ty = match annotation with
-                          | None -> TyArrow (fresh_var (), fresh_var ())
-                          | Some (TyArrow _ as annotation) -> annotation
-                          | Some _ -> type_error "let rec can only define functions"
+        let function_ty = fresh_var ()
                           
         // Create the environment where it is type inferred
         let it_env = extend_env (name, function_ty) env
         let it_ty, it_subst = typeinfer_expr it_env it
+        
+        // Check that it is used as a function (we must infer that it is a 'a -> 'b) otherwise is used as a value
+        match it_ty with
+        | TyArrow _ -> ()
+        | _ -> type_error "The right hand side of the recursive definition uses '%s' as a value"
+                    name
         
         // Apply function_ty and it_ty must be the same
         let function_ty = apply_subst function_ty it_subst
         let function_subst = unify function_ty it_ty
         let it_ty = apply_subst it_ty function_subst 
         let it_subst = compose_subst function_subst it_subst
+        
+        // Check the annotation if present
+        let it_ty, it_subst =
+            match annotation with
+            | Some (TyArrow _ as annotation) ->
+                let annotation_subst = unify it_ty annotation
+                let it_ty = apply_subst it_ty annotation_subst
+                it_ty, compose_subst annotation_subst it_subst
+            | Some _ -> type_error "Recursive definitions can only be used to define functions"
+            | None -> it_ty, it_subst
         
         // Infer the type of the body
         let body_env = apply_subst_in_env env it_subst
