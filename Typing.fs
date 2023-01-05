@@ -298,6 +298,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
             // Else we unify with the annotation
             | Some annotation ->
                 let it_type_un = unify annotation it_type
+                let it_type = apply_subst it_type it_type_un
                 Forall ([], it_type), compose_subst it_type_un it_subst
         let env = (name, it_type) :: env
         
@@ -326,6 +327,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 let _ = unify annotation function_ty // We still need to check that is a function but we don't care about
                                                      // the info
                 let it_type_un = unify annotation it_ty
+                let it_ty = apply_subst it_ty it_type_un
                 it_ty, compose_subst it_type_un it_subst
                 
         // Create the env to infer the body
