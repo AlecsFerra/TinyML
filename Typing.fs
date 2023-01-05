@@ -313,15 +313,17 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let it_env = extend_env (name, function_ty) env
         let it_ty, it_subst = typeinfer_expr it_env it
         
+        // Check that it_ty is compatible with it (infinite type check)
+        let function_ty = apply_subst function_ty it_subst
+        let function_subst = unify function_ty it_ty
+        
         // Check that it is used as a function (we must infer that it is a 'a -> 'b) otherwise is used as a value
         match it_ty with
         | TyArrow _ -> ()
-        | _ -> type_error "The right hand side of the recursive definition uses '%s' as a value"
+        | _ -> type_error "The right hand side of the recursive inferred that '%s' is used as a value"
                     name
         
-        // Apply function_ty and it_ty must be the same
-        let function_ty = apply_subst function_ty it_subst
-        let function_subst = unify function_ty it_ty
+        // Use the fact that function_ty and it_ty must be the same
         let it_ty = apply_subst it_ty function_subst 
         let it_subst = compose_subst function_subst it_subst
         
