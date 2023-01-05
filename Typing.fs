@@ -323,9 +323,6 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 let function_subst = unify function_ty it_ty
                 apply_subst it_ty function_subst, compose_subst function_subst it_subst
             | Some annotation ->
-                // We can leverage the annotation to skip the generalization
-                let _ = unify annotation function_ty // We still need to check that is a function but we don't care about
-                                                     // the info
                 let it_type_un = unify annotation it_ty
                 let it_ty = apply_subst it_ty it_type_un
                 it_ty, compose_subst it_type_un it_subst
