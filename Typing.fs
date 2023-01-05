@@ -143,26 +143,20 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         | None         -> type_error "Reference to undefined variable '%s'" x
     
     | Lambda(arg_name, annotation, body) ->
-        // Argument inference
-        let arg_ty = fresh_var ()
+        // Argument inference or use annotation
+        let arg_ty = match annotation with
+                     | Some annotation -> annotation
+                     | None -> fresh_var ()
         let env = extend_env (arg_name, arg_ty) env
         
         //  Body inference
         let body_ty, body_subs = typeinfer_expr env body
         let arg_ty = apply_subst arg_ty body_subs
         
-        // If we have an annotation we should use it and check it
-        let annotation_subs = match annotation with
-                                | Some annotation -> unify arg_ty annotation
-                                | None            -> []
-        let substitution = compose_subst body_subs annotation_subs
-        
         // Apply the new infos
-        let arg_ty = apply_subst arg_ty substitution
-        // No-op if we had no annotation
-        let body_ty = apply_subst body_ty substitution
+        let arg_ty = apply_subst arg_ty body_subs
         
-        TyArrow (arg_ty, body_ty), substitution
+        TyArrow (arg_ty, body_ty), body_subs
         
     | App(lhs, rhs) ->
         // Infer lhs
