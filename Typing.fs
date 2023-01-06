@@ -320,7 +320,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         // Check that it is used as a function (we must infer that it is a 'a -> 'b) otherwise is used as a value
         match it_ty with
         | TyArrow _ -> ()
-        | _ -> type_error "The right hand side of the recursive inferred that '%s' is used to define a value"
+        | _ -> type_error "The right hand side of the recursive inferred that '%s' is a value"
                     name
         
         // Use the fact that function_ty and it_ty must be the same
