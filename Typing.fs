@@ -329,7 +329,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     
     | LetRec(name, annotation, it, body) ->
         if not <| is_valid_letrec name it then
-            type_error "This kind of expression is not allowed as right-hand side of let rec"
+            type_error "'%s' is not statically constructive in respect to his definition"
+                        name
         
         let function_ty = fresh_var ()
                           
