@@ -125,6 +125,20 @@ let generalize env ty =
 
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
+    
+let rec is_valid_letrec name = function
+    | Var x when x = name -> false
+    | App(l, r)           -> is_valid_letrec name l
+                             && is_valid_letrec name r
+    | BinOp(l, _, r)      -> is_valid_letrec name l
+                             && is_valid_letrec name r
+    | UnOp(_, b)          -> is_valid_letrec name b
+    | IfThenElse(g, t, e) -> is_valid_letrec name g
+                             && is_valid_letrec name t
+                             && Option.defaultValue true
+                                <| Option.map (is_valid_letrec name) e
+    | _ -> true
+    
 
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -307,6 +321,9 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         body_ty, compose_subst body_scheme it_subst               
     
     | LetRec(name, annotation, it, body) ->
+        if not <| is_valid_letrec name it then
+            type_error "This kind of expression is not allowed as right-hand side of let rec"
+        
         let function_ty = fresh_var ()
                           
         // Create the environment where it is type inferred
@@ -317,12 +334,6 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         let function_ty = apply_subst function_ty it_subst
         let function_subst = unify function_ty it_ty
         
-        // Check that it is used as a function (we must infer that it is a 'a -> 'b) otherwise is used as a value
-        match it_ty with
-        | TyArrow _ -> ()
-        | _ -> type_error "The right hand side of the recursive inferred that '%s' is a value"
-                    name
-        
         // Use the fact that function_ty and it_ty must be the same
         let it_ty = apply_subst it_ty function_subst 
         let it_subst = compose_subst function_subst it_subst
@@ -330,11 +341,11 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         // Check the annotation if present
         let it_ty, it_subst =
             match annotation with
-            | Some (TyArrow _ as annotation) ->
+            | Some annotation ->
                 let annotation_subst = unify it_ty annotation
                 let it_ty = apply_subst it_ty annotation_subst
                 it_ty, compose_subst annotation_subst it_subst
-            | Some _ -> type_error "Recursive definitions can only be used to define functions"
+            // | Some _ -> type_error "Recursive definitions can only be used to define functions"
             | None -> it_ty, it_subst
         
         // Infer the type of the body

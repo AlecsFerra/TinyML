@@ -70,7 +70,8 @@ let rec eval_expr (env : value env) (e : expr) : value =
         | Closure (venv1, x, e) ->
             let rec_closure = RecClosure (venv1, f, x, e)
             eval_expr ((f, rec_closure) :: env) e2
-        | _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
+        | v -> v
+        //| _ -> unexpected_error "eval_expr: expected closure in rec binding but got: %s" (pretty_value v1)
         // TODO finish this implementation
 
     // TODO: implement other binary ops
