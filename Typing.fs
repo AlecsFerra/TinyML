@@ -104,6 +104,7 @@ let gamma0 =
     
 let s_gamma0 = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
 
+// Generate every time different type variables
 let mutable private fresh_variable_store = 0
 let fresh_var () =
     let v = fresh_variable_store
@@ -126,18 +127,24 @@ let generalize env ty =
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
     
+// Checks if the rhs of the letrec is free of references of the name
+// that are not lazly evaluated 
 let rec is_valid_letrec name = function
-    | Var x when x = name -> false
-    | App(l, r)           -> is_valid_letrec name l
-                             && is_valid_letrec name r
-    | BinOp(l, _, r)      -> is_valid_letrec name l
-                             && is_valid_letrec name r
-    | UnOp(_, b)          -> is_valid_letrec name b
-    | IfThenElse(g, t, e) -> is_valid_letrec name g
-                             && is_valid_letrec name t
-                             && Option.defaultValue true
-                                <| Option.map (is_valid_letrec name) e
-    | _ -> true
+    | Var x when x = name                 -> false
+    | App(l, r)                           ->    is_valid_letrec name l
+                                             && is_valid_letrec name r
+    | BinOp(l, _, r)                      ->    is_valid_letrec name l
+                                             && is_valid_letrec name r
+    | UnOp(_, b)                          -> is_valid_letrec name b
+    | IfThenElse(g, t, e)                 ->    is_valid_letrec name g
+                                             && is_valid_letrec name t
+                                             && Option.defaultValue true
+                                                <| Option.map (is_valid_letrec name) e
+    | Tuple bs                            -> List.fold (&&) true <| List.map (is_valid_letrec name) bs
+    | LetIn((is_rec, iname, _, it), body) ->    (is_rec && iname = name)
+                                             || (iname = name && is_valid_letrec name it)
+                                             || (is_valid_letrec name body && is_valid_letrec name it)
+    | Lambda _ | Var _ | Lit _            -> true
     
 
 // TODO for exam
