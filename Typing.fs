@@ -36,7 +36,6 @@ let rec apply_subst (t : ty) (s : subst) : ty =
 // TODO implement this
 let compose_subst (s2 : subst) (s1 : subst) : subst =
     let s1 = List.map (fun (id, t) -> (id, apply_subst t s2)) s1
-    // FIXME: Are infinite substitutions happening?
     s1 @ s2
 
 // TODO implement this
@@ -115,7 +114,7 @@ let fresh_var () =
 let instantiate (Forall(tyvars, ty)) =
     let free = freevars_ty ty
     let toRefresh = Set.intersect free (Set tyvars)
-    let sub = List.map (fun v -> (v, fresh_var  ())) <| Set.toList toRefresh
+    let sub = List.map (fun v -> v, fresh_var ()) <| Set.toList toRefresh
     apply_subst ty sub
 
 // Generalize a type
@@ -228,18 +227,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         // Construct the arrow
         let ret_ty = fresh_var ()
         let op_ty = TyArrow (lhs_ty, TyArrow(rhs_ty, ret_ty))
-        let try_unify acc ty =
-            match acc with
-            | Some acc -> Some acc
-            | None     ->
-                try
-                    let subst = unify op_ty ty
-                    let subst = compose_subst subst <| compose_subst rhs_subst lhs_subst
-                    Some (apply_subst ret_ty subst, subst)
-                with
-                    | TypeError _ -> None
+        let try_unify ty =
+            try
+                let subst = unify op_ty ty
+                let subst = compose_subst subst <| compose_subst rhs_subst lhs_subst
+                Some (apply_subst ret_ty subst, subst)
+            with
+                | TypeError _ -> None
                 
-        match List.fold try_unify None definitions with
+        match List.tryPick try_unify definitions with
             | Some res -> res
             | None     -> type_error "Cannot find a possible instantiation for operator '%s' with arguments %s %s %s"
                                         operator (pretty_ty lhs_ty) operator (pretty_ty rhs_ty)
@@ -265,18 +261,15 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
         // Construct the arrow
         let ret_ty = fresh_var ()
         let op_ty = TyArrow (arg_ty, ret_ty)
-        let try_unify acc ty =
-            match acc with
-            | Some acc -> Some acc
-            | None     ->
-                try
-                    let subst = unify op_ty ty
-                    let subst = compose_subst subst arg_subst
-                    Some (apply_subst ret_ty subst, subst)
-                with
-                    | TypeError _ -> None
+        let try_unify ty =
+            try
+                let subst = unify op_ty ty
+                let subst = compose_subst subst arg_subst
+                Some (apply_subst ret_ty subst, subst)
+            with
+                | TypeError _ -> None
                 
-        match List.fold try_unify None definitions with
+        match List.tryPick try_unify definitions with
             | Some res -> res
             | None     -> type_error "Cannot find a possible instantiation for operator '%s' with arguments %s %s"
                                         operator operator (pretty_ty arg_ty)

@@ -123,8 +123,7 @@ let rec eval_expr (env : value env) (e : expr) : value =
     | _ -> unexpected_error "eval_expr: unsupported expression: %s [AST: %A]" (pretty_expr e) e
 
 and try_apply arg fs =
-    let combine x f = Option.orElseWith (fun () -> f arg) x
-    List.fold combine None fs
+    List.tryPick ((|>) arg) fs
     
 and combine name ops l r =
     match try_apply (l, r) ops with
