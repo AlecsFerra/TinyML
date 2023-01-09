@@ -39,9 +39,9 @@ let compose_subst (s2 : subst) (s1 : subst) : subst =
     s1 @ s2
 
 // TODO implement this
-let rec unify (t1 : ty) (t2 : ty) : subst =   
+let rec unify (t1 : ty) (t2 : ty) : subst =
     match t1, t2 with
-    | t1, t2 when t1 = t2 -> [] 
+    | t1, t2 when t1 = t2 -> []
     | TyName t1, TyName t2 when t1 = t2 -> []
     | TyTuple t1s, TyTuple t2s when t1s.Length = t2s.Length ->
         let apply subst (x, y) = compose_subst (unify (apply_subst x subst)
@@ -63,7 +63,7 @@ let rec unify (t1 : ty) (t2 : ty) : subst =
 
 let apply_subst_in_scheme (Forall(tyvars, ty)) subst =
     Forall(tyvars, apply_subst ty subst)
-    
+
 let apply_subst_in_env env subst =
     List.map(fun (id, schema) -> (id, apply_subst_in_scheme schema subst)) env
 
@@ -84,7 +84,7 @@ let gamma0 =
     let make_numeric_op op =
         make_integral_op op
         @ [
-        (op, TyArrow (TyFloat, TyArrow (TyFloat, TyFloat)))   
+        (op, TyArrow (TyFloat, TyArrow (TyFloat, TyFloat)))
         (op, TyArrow (TyInt, TyArrow (TyFloat, TyFloat)))
         (op, TyArrow (TyFloat, TyArrow (TyInt, TyFloat)))
     ]
@@ -100,7 +100,7 @@ let gamma0 =
     let comparison_ops = List.collect make_comparison_op ["<"; "<="; ">"; ">="; "=" ; "<>"]
     let boolean_ops = List.collect make_bool_op ["and"; "or"]
     numeric_sops @ boolean_sops @ numerical_ops @ comparison_ops @ boolean_ops
-    
+
 let s_gamma0 = List.map (fun (x, y) -> (x, Forall([], y))) gamma0
 
 // Generate every time different type variables
@@ -109,7 +109,7 @@ let fresh_var () =
     let v = fresh_variable_store
     fresh_variable_store <- fresh_variable_store + 1
     TyVar v
-    
+
 // Instantiate a schema
 let instantiate (Forall(tyvars, ty)) =
     let free = freevars_ty ty
@@ -125,9 +125,9 @@ let generalize env ty =
 
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
-    
+
 // Checks if the rhs of the letrec is free of references of the name
-// that are not lazly evaluated 
+// that are not lazly evaluated
 let rec is_valid_letrec name = function
     | Var x when x = name                 -> false
     | App(l, r)                           ->    is_valid_letrec name l
@@ -144,7 +144,7 @@ let rec is_valid_letrec name = function
                                              || (iname = name && is_valid_letrec name it)
                                              || (is_valid_letrec name body && is_valid_letrec name it)
     | Lambda _ | Var _ | Lit _            -> true
-    
+
 
 // TODO for exam
 let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
@@ -156,74 +156,74 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
     | Lit (LChar _) -> TyChar, []
     | Lit (LBool _) -> TyBool, []
     | Lit LUnit -> TyUnit, []
-    
+
     | Var x ->
         match List.tryFind ((=) x << fst) env with
         | Some (_, ty) -> instantiate ty, []
         | None         -> type_error "Reference to undefined variable '%s'" x
-    
+
     | Lambda(arg_name, annotation, body) ->
         // Argument inference or use annotation
         let arg_ty = match annotation with
                      | Some annotation -> annotation
                      | None -> fresh_var ()
         let env = extend_env (arg_name, arg_ty) env
-        
+
         //  Body inference
         let body_ty, body_subs = typeinfer_expr env body
         let arg_ty = apply_subst arg_ty body_subs
-        
+
         // Apply the new infos
         let arg_ty = apply_subst arg_ty body_subs
-        
+
         TyArrow (arg_ty, body_ty), body_subs
-        
+
     | App(lhs, rhs) ->
         // Infer lhs
         let lhs_ty, lhs_subst = typeinfer_expr env lhs
         let env = apply_subst_in_env env lhs_subst
-        
+
         // Infer rhs
         let rhs_ty, rhs_subst = typeinfer_expr env rhs
-        
+
         // Updates
         let lhs_ty = apply_subst lhs_ty rhs_subst
-        
+
         // Construct the arrow
         let ret_ty = fresh_var ()
         let app_ty = TyArrow (rhs_ty, ret_ty)
         // Expect that the lhs_ty is such arrow
         let arrow_subst = unify lhs_ty app_ty
-        
+
         // Collect all the information
         let subst = compose_subst arrow_subst <| compose_subst rhs_subst lhs_subst
         apply_subst ret_ty subst, subst
-    
+
     // FIXME: Should we generalize? fun x -> x + x;;
     | BinOp(lhs, operator, rhs) ->
         let get_op = function
             | name, ty when name = operator -> Some ty
             | _ -> None
-            
+
         let binary = function
             |TyArrow(_, TyArrow(_, TyArrow _)) -> false
             | TyArrow(_, TyArrow _) -> true
             | _ -> false
-        
+
         // Get all the overloads of the operator
         let definitions = List.filter binary <| List.choose get_op gamma0
         if definitions.Length = 0 then
             type_error "Unknown binary operator '%s'" operator
-        
+
         // infer the lhs
         let lhs_ty, lhs_subst = typeinfer_expr env lhs
         let env = apply_subst_in_env env lhs_subst
-        
+
         // infer the rhs
         let rhs_ty, rhs_subst = typeinfer_expr env rhs
         // Update
         let lhs_ty = apply_subst lhs_ty rhs_subst
-        
+
         // Construct the arrow
         let ret_ty = fresh_var ()
         let op_ty = TyArrow (lhs_ty, TyArrow(rhs_ty, ret_ty))
@@ -234,30 +234,30 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 Some (apply_subst ret_ty subst, subst)
             with
                 | TypeError _ -> None
-                
+
         match List.tryPick try_unify definitions with
             | Some res -> res
             | None     -> type_error "Cannot find a possible instantiation for operator '%s' with arguments %s %s %s"
                                         operator (pretty_ty lhs_ty) operator (pretty_ty rhs_ty)
-    
+
     | UnOp(operator, arg) ->
         let get_op = function
             | name, ty when name = operator -> Some ty
             | _                             -> None
-        
+
         let unary = function
             | TyArrow(_, TyArrow _) -> false
             | TyArrow _ -> true
             | _ -> false
-        
+
         // Get all the overloads of the operator
         let definitions = List.filter unary <| List.choose get_op gamma0
         if definitions.Length = 0 then
             type_error "Unknown unary operator '%s'" operator
-            
+
         // Infer the argument
         let arg_ty, arg_subst = typeinfer_expr env arg
-        
+
         // Construct the arrow
         let ret_ty = fresh_var ()
         let op_ty = TyArrow (arg_ty, ret_ty)
@@ -268,23 +268,23 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 Some (apply_subst ret_ty subst, subst)
             with
                 | TypeError _ -> None
-                
+
         match List.tryPick try_unify definitions with
             | Some res -> res
             | None     -> type_error "Cannot find a possible instantiation for operator '%s' with arguments %s %s"
                                         operator operator (pretty_ty arg_ty)
-    
+
     | IfThenElse(guard, thenBranch, elseBranch) ->
         // Infer the type of the guard and expect that is a Boolean
         let guard_ty, guard_subst = typeinfer_expr env guard
         let guard_subst = compose_subst (unify guard_ty TyBool) guard_subst
         let env = apply_subst_in_env env guard_subst
-        
+
         // Infer the type of the then branch
         let then_ty, then_subst = typeinfer_expr env thenBranch
         let subst = compose_subst then_subst guard_subst
         let env = apply_subst_in_env env subst
-        
+
         // Do we have an else branch
         match elseBranch with
             | Some elseBranch ->
@@ -299,7 +299,7 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 // No, we must have Unit as the then type
                 let guard_subst = unify guard_ty TyUnit
                 TyUnit, compose_subst guard_subst subst
-    
+
     | Let(name, annotation, it, body) ->
         // Infer the type of the it expression
         let it_type, it_subst = typeinfer_expr env it
@@ -315,30 +315,30 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 let it_type = apply_subst it_type it_type_un
                 Forall ([], it_type), compose_subst it_type_un it_subst
         let env = (name, it_type) :: env
-        
+
         // Infer the body
         let body_ty, body_scheme = typeinfer_expr env body
-        body_ty, compose_subst body_scheme it_subst               
-    
+        body_ty, compose_subst body_scheme it_subst
+
     | LetRec(name, annotation, it, body) ->
         if not <| is_valid_letrec name it then
             type_error "'%s' is not statically constructive in respect to his definition"
                         name
-        
+
         let function_ty = fresh_var ()
-                          
+
         // Create the environment where it is type inferred
         let it_env = extend_env (name, function_ty) env
         let it_ty, it_subst = typeinfer_expr it_env it
-        
+
         // Check that it_ty is compatible with it (infinite type check)
         let function_ty = apply_subst function_ty it_subst
         let function_subst = unify function_ty it_ty
-        
+
         // Use the fact that function_ty and it_ty must be the same
-        let it_ty = apply_subst it_ty function_subst 
+        let it_ty = apply_subst it_ty function_subst
         let it_subst = compose_subst function_subst it_subst
-        
+
         // Check the annotation if present
         let it_ty, it_subst =
             match annotation with
@@ -348,26 +348,26 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 it_ty, compose_subst annotation_subst it_subst
             // | Some _ -> type_error "Recursive definitions can only be used to define functions"
             | None -> it_ty, it_subst
-        
+
         // Infer the type of the body
         let body_env = apply_subst_in_env env it_subst
         let body_env = (name, generalize body_env it_ty) :: body_env
         let body_ty, body_subst = typeinfer_expr body_env body
-        
+
         body_ty, compose_subst body_subst it_subst
-        
-    
+
+
     | Tuple args ->
         let accumulate (env, subst, ty) it =
             let env = apply_subst_in_env env subst
             let it_ty, it_subst = typeinfer_expr env it
-            
+
             // Use the new info
             let ty = List.map (fun t -> apply_subst t it_subst) ty
             let subst = compose_subst it_subst subst
-            
+
             env, subst, ty @ [ it_ty ]
-            
+
         let _, subst, ty = List.fold accumulate (env, [], []) args
         TyTuple ty, subst
 
