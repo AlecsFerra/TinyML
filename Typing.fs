@@ -119,9 +119,9 @@ let instantiate (Forall(tyvars, ty)) =
 
 // Generalize a type
 let generalize env ty =
-    let diff = Set.difference (freevars_ty ty)
-                              (List.fold Set.union Set.empty <| List.map (freevars_scheme << snd) env)
-    Forall (Set.toList diff, ty)
+    let free = freevars_ty ty
+    let scheme = Set.unionMany <| List.map (freevars_scheme << snd) env
+    Forall (Set.toList <| Set.difference free scheme, ty)
 
 let extend_env (name, ty) env=
     (name, Forall ([], ty)) :: env
