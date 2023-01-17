@@ -139,7 +139,7 @@ let rec is_valid_letrec name = function
                                              && is_valid_letrec name t
                                              && Option.defaultValue true
                                                 <| Option.map (is_valid_letrec name) e
-    | Tuple bs                            -> List.fold (&&) true <| List.map (is_valid_letrec name) bs
+    | Tuple bs                            -> List.forall (is_valid_letrec name) bs
     | LetIn((is_rec, iname, _, it), body) ->    (is_rec && iname = name)
                                              || (iname = name && is_valid_letrec name it)
                                              || (is_valid_letrec name body && is_valid_letrec name it)
