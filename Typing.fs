@@ -111,6 +111,8 @@ let fresh_var () =
     TyVar v
 
 // Instantiate a schema
+// Given ∀ x . t(x)
+// refresh all x in t(x)
 let instantiate (Forall(tyvars, ty)) =
     let free = freevars_ty ty
     let toRefresh = Set.intersect free (Set tyvars)
@@ -118,6 +120,7 @@ let instantiate (Forall(tyvars, ty)) =
     apply_subst ty sub
 
 // Generalize a type
+// Given t make ∀ free(t) . t(free(t)) 
 let generalize env ty =
     let free = freevars_ty ty
     let scheme = Set.unionMany <| List.map (freevars_scheme << snd) env
@@ -297,8 +300,8 @@ let rec typeinfer_expr (env : scheme env) (e : expr) : ty * subst =
                 apply_subst then_ty subst, subst
             | None ->
                 // No, we must have Unit as the then type
-                let guard_subst = unify guard_ty TyUnit
-                TyUnit, compose_subst guard_subst subst
+                let then_subst = unify then_ty TyUnit
+                TyUnit, compose_subst then_subst subst
 
     | Let(name, annotation, it, body) ->
         // Infer the type of the it expression
