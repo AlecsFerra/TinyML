@@ -6,4 +6,4 @@ packages/
 Lexer.fs
 Parser.fs
 Parser.fsi
-.*user
+*.user
